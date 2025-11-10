@@ -1,3 +1,4 @@
+// src/app/api/products/[id]/route.ts
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { products } from "@/db/schema";
@@ -6,22 +7,20 @@ import { redis } from "@/lib/redis";
 
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> } // 👈 注意这里是 Promise
 ) {
-  const id = parseInt(params.id);
-  const cacheKey = `product:${id}`;
+  const { id } = await params; // 👈 必须 await！
 
-  // 1. 尝试从 Redis 读取
+  const cacheKey = `product:${id}`;
   let product = await redis.get(cacheKey);
+
   if (!product) {
-    // 2. 从 DB 查询
-    const result = await db.select().from(products).where(eq(products.id, id));
+    const result = await db.select().from(products).where(eq(products.id, parseInt(id)));
     product = result[0];
     if (product) {
-      // 3. 写入缓存，过期 1 小时
       await redis.set(cacheKey, product, { ex: 3600 });
     }
   }
 
-  return NextResponse.json(product || { error: "Not found" });
+  return NextResponse.json(product || { error: "Product not found" });
 }

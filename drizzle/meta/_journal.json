@@ -8,6 +8,13 @@
       "when": 1762766416820,
       "tag": "0000_chilly_true_believers",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1762767031102,
+      "tag": "0001_bright_steel_serpent",
+      "breakpoints": true
     }
   ]
 }
