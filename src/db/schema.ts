@@ -1,12 +1,15 @@
 // src/db/schema.ts
 import { pgTable, serial, text, timestamp, integer, jsonb } from "drizzle-orm/pg-core";
 
-// 用户表（你已有的）
+//用户表
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
-  email: text("email").notNull().unique(),
-  password: text("password"),
+  email: text("email").notNull().unique(), // ✅ 用 text 替代 varchar
+  password: text("password"),              // bcrypt hash，通常 < 100 字符
+  name: text("name"),
+  role: text("role").default("user"),      // 'user' | 'admin'
   createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 // 👇 商品表（你需要添加的！）
