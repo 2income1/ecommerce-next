@@ -3,6 +3,9 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { signIn } from "next-auth/react"; // ✅ 从 next-auth/react 导入
+// src/app/api/auth/register/route.ts
+export const runtime = "nodejs"; // 👈 添加这一行
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -14,18 +17,17 @@ export default function LoginPage() {
     e.preventDefault();
     setError("");
 
-    const res = await fetch("/api/auth/callback/credentials", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password, redirect: false }),
+    const result = await signIn("credentials", {
+      email,
+      password,
+      redirect: false, // 不自动跳转，由我们控制
     });
 
-    const data = await res.json();
-
-    if (data.error) {
+    if (result?.error) {
       setError("Invalid email or password");
     } else {
-      router.push("/dashboard"); // 登录成功跳转
+      // 登录成功，手动跳转
+      router.push("/dashboard");
       router.refresh();
     }
   };
@@ -56,9 +58,9 @@ export default function LoginPage() {
         </button>
       </form>
       <p className="mt-4">
-        Don't have an account?{" "}
+        Dont have an account?{" "}
         <a href="/register" className="text-blue-500">Register</a>
       </p>
     </div>
   );
-}   
+}
