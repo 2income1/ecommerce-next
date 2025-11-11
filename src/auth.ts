@@ -3,14 +3,21 @@ import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { db } from "@/db";
 import bcrypt from "bcryptjs";
-import { users } from "@/db/schema"; 
+import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { redis } from "@/lib/redis";
 
 const MAX_LOGIN_ATTEMPTS = 5;
 const LOGIN_BLOCK_DURATION = 3600; // 1 小时（秒）
-// 👇 关键：强制使用 Node.js Runtime
-export const runtime = "nodejs";
+
+// ⚠️ 注意：runtime 只能用于 Route Handlers（如 route.ts），不能用于 auth.ts！
+// 所以删除下面这行 👇
+// export const runtime = "nodejs"; // ❌ 删除！auth.ts 不是路由文件
+
+interface UserCredentials {
+  email: string;
+  password: string;
+}
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [
@@ -21,16 +28,21 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        console.log("Redis client type:", typeof redis.get); // 应该是 function
+        console.log("Redis client type:", typeof redis.get);
         console.log("🔍 [NextAuth] authorize() called with credentials:", {
-          email: credentials?.email,
+          email: (credentials as any)?.email,
         });
 
-        if (!credentials?.email || !credentials.password) {
-          console.warn("⚠️ [NextAuth] Missing email or password");
+        // 🔹 类型守卫：确保 credentials 存在且字段为字符串
+        if (
+          !credentials ||
+          typeof credentials.email !== "string" ||
+          typeof credentials.password !== "string"
+        ) {
           return null;
         }
 
+        // ✅ 现在 TS 确定 credentials.email 是 string
         const email = credentials.email.toLowerCase().trim();
         const rateLimitKey = `login_attempts:${email}`;
 
@@ -51,7 +63,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         if (!user || !user.password) {
           console.warn(`👤 [NextAuth] User not found or no password set: ${email}`);
-          // 即使用户不存在，也计入尝试次数（防止邮箱探测）
           const newAttempts = (attempts || 0) + 1;
           await redis.set(rateLimitKey, newAttempts);
           await redis.expire(rateLimitKey, LOGIN_BLOCK_DURATION);
@@ -95,13 +106,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       console.log("webtoken callback", { token, userExists: !!user });
       if (user) {
         token.role = user.role;
+        token.sub = user.id; // 确保 sub 存在（session 回调要用）
       }
       return token;
     },
     session({ session, token }) {
       console.log("session callback", { session, token });
       if (session.user) {
-        session.user.id = token.sub as string;
+        session.user.id = token.sub as string; // ✅ 确保 token.sub 被设置
         session.user.role = token.role as string;
       }
       return session;
@@ -118,7 +130,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       console.log("✅ [NextAuth Event] User signed in:", message.user?.email);
     },
     async signOut(message) {
-      console.log("👋 [NextAuth Event] User signed out:", message.token?.sub);
+      if ("token" in message) {
+        console.log("👋 [NextAuth Event] User signed out (JWT sub):", message.token?.sub);
+      } else {
+        console.log("👋 [NextAuth Event] User signed out (Session-based)");
+      }
     },
   },
 });
