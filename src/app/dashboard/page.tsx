@@ -2,6 +2,9 @@
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 
+// ✅ 强制该页面永不静态生成
+export const dynamic = "force-dynamic";
+
 export default async function DashboardPage() {
   const session = await auth();
   if (!session) redirect("/login");

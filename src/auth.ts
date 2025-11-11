@@ -5,7 +5,7 @@ import { db } from "@/db";
 import { users } from "@/db/schema";
 import bcrypt from "bcrypt";
 import { eq } from "drizzle-orm";
-import { redis } from "@/lib/redis"; // 确保该文件已正确配置 Upstash
+import { redis } from "@/lib/redis";
 
 const MAX_LOGIN_ATTEMPTS = 5;
 const LOGIN_BLOCK_DURATION = 3600; // 1 小时（秒）
@@ -47,7 +47,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         // 🔑 验证密码
         const isValid = await bcrypt.compare(credentials.password, user.password);
         if (!isValid) {
-          // 密码错误，增加尝试次数
           const newAttempts = (attempts || 0) + 1;
           await redis.set(rateLimitKey, newAttempts);
           await redis.expire(rateLimitKey, LOGIN_BLOCK_DURATION);
@@ -61,11 +60,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         // ✅ 登录成功：清除尝试记录
         await redis.del(rateLimitKey);
 
+        // ✅ 关键修复：将 null 转为 undefined，符合 NextAuth User 类型
         return {
           id: user.id.toString(),
           email: user.email,
-          name: user.name || null,
-          role: user.role || "user",
+          name: user.name ?? undefined, // 👈 修复点 1
+          role: user.role ?? "user",    // 👈 修复点 2（配合类型扩展）
         };
       },
     }),
@@ -73,14 +73,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   callbacks: {
     jwt({ token, user }) {
       if (user) {
-        token.role = user.role;
+        token.role = user.role; // ✅ 需要 next-auth.d.ts 扩展 JWT 类型
       }
       return token;
     },
     session({ session, token }) {
-      if (session.user && token.sub) {
-        session.user.id = token.sub;
-        session.user.role = token.role as string;
+      if (session.user) {
+        session.user.id = token.sub as string;
+        session.user.role = token.role as string; // ✅ 需要 next-auth.d.ts 扩展 Session 类型
       }
       return session;
     },
@@ -92,7 +92,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     strategy: "jwt",
   },
   events: {
-    // 可选：记录安全事件（如登录失败）
     async signIn(message) {
       console.log("User signed in:", message.user?.email);
     },
