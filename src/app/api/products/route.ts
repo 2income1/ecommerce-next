@@ -11,7 +11,7 @@ export async function GET() {
   try {
     // 尝试从缓存读取
     const cached = await redis.get(cacheKey);
-
+    console.log(cached);
     if (cached) {
       // 确保 cached 是字符串
       // if (typeof cached !== 'string') {

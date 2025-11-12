@@ -12,7 +12,7 @@ export default async function HomePage() {
   const session = await auth();
   
   // 使用
-  const res = await fetch(getApiUrl("/products"), { cache: "force-cache" });
+  const res = await fetch(getApiUrl("/products"), { cache: "no-store" }); 
    
   if (!res.ok) {
     console.error("Failed to fetch products");
