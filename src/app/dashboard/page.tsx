@@ -1,5 +1,5 @@
 // src/app/dashboard/page.tsx
-import { auth } from "@/auth";
+import { auth } from "@/lib/authconfig";
 import { redirect } from "next/navigation";
 
 // ✅ 强制该页面永不静态生成

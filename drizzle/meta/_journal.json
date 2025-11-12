@@ -22,6 +22,13 @@
       "when": 1762828888115,
       "tag": "0002_complete_cassandra_nova",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1762925009256,
+      "tag": "0003_nice_pyro",
+      "breakpoints": true
     }
   ]
 }
