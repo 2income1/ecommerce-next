@@ -1,79 +1,71 @@
 // src/app/page.tsx
-import { auth } from "@/lib/authconfig"; 
-import { getApiUrl } from "@/util/api"; 
+import { auth } from "@/lib/authconfig";
+import { getApiUrl } from "@/util/api";
 import { Product } from "@/types";
-import ProductCard from "@/components/ProductCard";
 import HeroBanner from "@/components/HeroBanner";
 import CategoryNav from "@/components/CategoryNav";
-import SearchBar from "@/components/SearchBar"; 
+import SearchBar from "@/components/SearchBar";
 import Link from "next/link";
+import ProductListSection from "@/components/ProductListSection"; // ← 新增导入
+import type { Session } from "next-auth";
 
 export default async function HomePage() {
   const session = await auth();
-  
-  // 使用
-  const res = await fetch(getApiUrl("/products"), { cache: "no-store" }); 
-   
+
+  // 🔥 仅用于首屏 SSR，不缓存
+  const res = await fetch(getApiUrl("/products"), {
+    cache: "no-store",
+    next: { tags: ["products"] }, // 可选：用于 revalidateTag
+  });
+
   if (!res.ok) {
-    console.error("Failed to fetch products");
-    return <div>Error loading products</div>;
+    console.error("❌ Failed to fetch products for SSR");
+    // 即使失败，也渲染页面，让 SWR 在客户端重试
+    return <HomePageShell session={session} />;
   }
 
-  const { featured, popular }: { featured: Product[]; popular: Product[] } = await res.json();
+  const { featured, popular } = await res.json();
 
-  return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-          <h1 className="text-2xl font-bold text-blue-600">EcomHub</h1>
-          <nav>
-            <ul className="flex space-x-6">
-              <li><Link  href="/" className="hover:text-blue-600">Home</Link></li>
-              <li><a href="/products" className="hover:text-blue-600">Products</a></li>
-              <li><a href="/cart" className="hover:text-blue-600">Cart</a></li>
-              {session ? (
-                <li><a href="/dashboard" className="hover:text-blue-600">Dashboard</a></li>
-              ) : (
-                <li><a href="/login" className="hover:text-blue-600">Login</a></li>
-              )}
-            </ul>
-          </nav>
+  return <HomePageShell session={session} featured={featured} popular={popular} />;
+}
+
+// 单独拆出渲染壳，避免重复逻辑
+function HomePageShell({
+    session,
+    featured = [],
+    popular = [],
+}: {
+    session: Session | null;
+    featured?: Product[];
+    popular?: Product[];
+}) {
+    return (
+        <div className="min-h-screen bg-gray-50">
+            {/* Header */}
+            <header className="bg-white shadow-sm">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
+                    <h1 className="text-2xl font-bold text-blue-600">EcomHub</h1>
+                    <nav>
+                        <ul className="flex space-x-6">
+                            {/* Navigation Links */}
+                        </ul>
+                    </nav>
+                </div>
+            </header>
+
+            <HeroBanner />
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                <SearchBar />
+            </div>
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+                <CategoryNav />
+            </div>
+
+            {/* 商品列表交给客户端组件 */}
+            <ProductListSection
+                initialFeatured={featured}
+                initialPopular={popular}
+            />
         </div>
-      </header>
-
-      {/* Hero Banner */}
-      <HeroBanner />
-
-      {/* Search Bar */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <SearchBar />
-      </div>
-
-      {/* Category Nav */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <CategoryNav />
-      </div>
-
-      {/* Featured Products */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <h2 className="text-2xl font-bold mb-6">Featured Products</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-          {featured.map((product) => (
-            <ProductCard key={product.id} product={product} />
-          ))}
-        </div>
-      </section>
-
-      {/* Popular Products */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <h2 className="text-2xl font-bold mb-6">Popular in Electronics</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-          {popular.map((product) => (
-            <ProductCard key={product.id} product={product} />
-          ))}
-        </div>
-      </section>
-    </div>
-  );
+    );
 }
